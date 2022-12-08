@@ -34,10 +34,10 @@ sock.connect(sever_port)
 print("start a client")
 time.sleep(0.01)
 
-s = "start"
-s = bytes(s,encoding='utf8')
-sock.send(s)
-print(s)
+#s = "start"
+#s = bytes(s,encoding='utf8')
+#sock.send(s)
+#print(s)
 
 # Connect the client and set up bp library and spawn point
 client = carla.Client('localhost', 2000)
@@ -48,28 +48,17 @@ spawn_points = world.get_map().get_spawn_points()
 
 # Add vehicle
 vehicle_bp = bp_lib.find('vehicle.lincoln.mkz_2020') 
-vehicle = world.try_spawn_actor(vehicle_bp, spawn_points[79])
+vehicle = world.try_spawn_actor(vehicle_bp, spawn_points[3])
 
 # Move spectator to view ego vehicle
 spectator = world.get_spectator() 
 transform = carla.Transform(vehicle.get_transform().transform(carla.Location(x=-4,z=2.5)),vehicle.get_transform().rotation) 
 spectator.set_transform(transform)
 
-# frame cada 0,5 segundos, habrá dos fotogramas
-settings = world.get_settings()
-settings.fixed_delta_seconds = 0.005
-world.apply_settings(settings)
-
-# Add traffic and set in motion with Traffic Manager
-for i in range(100): 
-    vehicle_bp = random.choice(bp_lib.filter('vehicle')) 
-    npc = world.try_spawn_actor(vehicle_bp, random.choice(spawn_points))    
-for v in world.get_actors().filter('*vehicle*'): 
-    v.set_autopilot(True)
 
 # Camera callback
-def camera_callback(image, data_dict):
-    data_dict['image'] = np.reshape(np.copy(image.raw_data), (image.height, image.width, 4)) 
+#def camera_callback(image, data_dict):
+#    data_dict['image'] = np.reshape(np.copy(image.raw_data), (image.height, image.width, 4)) 
 
 # RADAR callbacks
 def radar_callback(data, point_list):
@@ -85,22 +74,26 @@ def radar_callback(data, point_list):
     sendDataMatlab(radar_data,'radar')     
 
 
+    points = radar_data[:, :-1]
+    points[:, :1] = -points[:, :1]
+    #print(points)
 # Spawn camera
-camera_bp = bp_lib.find('sensor.camera.rgb') 
-camera_init_trans = carla.Transform(carla.Location(z=2.5, x=-3), carla.Rotation())
-camera = world.spawn_actor(camera_bp, camera_init_trans, attach_to=vehicle)
+#camera_bp = bp_lib.find('sensor.camera.rgb') 
+#camera_init_trans = carla.Transform(carla.Location(z=2.5, x=-3), carla.Rotation())
+#camera = world.spawn_actor(camera_bp, camera_init_trans, attach_to=vehicle)
 
 # Set up dictionary for camera data
-image_w = camera_bp.get_attribute("image_size_x").as_int()
-image_h = camera_bp.get_attribute("image_size_y").as_int()
-camera_data = {'image': np.zeros((image_h, image_w, 4))} 
+#image_w = camera_bp.get_attribute("image_size_x").as_int()
+#image_h = camera_bp.get_attribute("image_size_y").as_int()
+#camera_data = {'image': np.zeros((image_h, image_w, 4))} 
 
 #RADAR, parameters are to assisst visualisation
-radar_bp = bp_lib.find('sensor.other.radar') 
-radar_bp.set_attribute('horizontal_fov', '30.0')
-radar_bp.set_attribute('vertical_fov', '30.0')
+radar_bp = bp_lib.find('sensor.other.radar')
+radar_bp.set_attribute('range', '20') 
+radar_bp.set_attribute('horizontal_fov', '20.0')
+radar_bp.set_attribute('vertical_fov', '8.0')
 radar_bp.set_attribute('points_per_second', '10000')
-radar_init_trans = carla.Transform(carla.Location(z=2))
+radar_init_trans = carla.Transform(carla.Location(z=0.5))
 radar = world.spawn_actor(radar_bp, radar_init_trans, attach_to=vehicle)
 
 # Add auxilliary data structures
@@ -109,7 +102,7 @@ radar_list = o3d.geometry.PointCloud()
 
 # Start sensors
 radar.listen(lambda data: radar_callback(data, radar_list))
-camera.listen(lambda image: camera_callback(image, camera_data))
+#camera.listen(lambda image: camera_callback(image, camera_data))
 
 #Send radar data to MATLAB
 def sendDataMatlab(data,Identificador):
@@ -122,23 +115,23 @@ def sendDataMatlab(data,Identificador):
     #print(send)
 
 # OpenCV window for camera
-cv2.namedWindow('RGB Camera', cv2.WINDOW_AUTOSIZE)
-cv2.imshow('RGB Camera', camera_data['image'])
-cv2.waitKey(1)
+#cv2.namedWindow('RGB Camera', cv2.WINDOW_AUTOSIZE)
+#cv2.imshow('RGB Camera', camera_data['image'])
+#cv2.waitKey(1)
 
 while True:  
-    cv2.imshow('RGB Camera', camera_data['image'])
+    #cv2.imshow('RGB Camera', camera_data['image'])
 
-    #raw_data=sock.recv(2048).decode('utf-8')
-    #lst_str = str(raw_data)[1:-1] 
-    #array = (lst_str.split (" "))
-    #datos= list(map(float,array))
+    raw_data=sock.recv(2048).decode('utf-8')
+    lst_str = str(raw_data)[1:-1] 
+    array = (lst_str.split (" "))
+    datos= list(map(float,array))
     #print (datos)
-    #acelerador =  datos [0]
+    acelerador =  datos [0]
     #print (acelerador)
-    #direccion =  datos [1]
+    direccion =  datos [1]
     #print (direccion)
-    #vehicle.apply_control(carla.VehicleControl(throttle = acelerador, steer = direccion)
+    vehicle.apply_control(carla.VehicleControl(throttle = acelerador, steer = direccion))
 
     # Break if user presses 'q'
     if cv2.waitKey(1) == ord('q'):
